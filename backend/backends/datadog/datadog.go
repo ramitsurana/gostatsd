@@ -105,6 +105,37 @@ func (d *client) SendMetrics(ctx context.Context, metrics *types.MetricMap) erro
 	if metrics.NumStats == 0 {
 		return nil
 	}
+	return d.postMetrics(d.prepareSeries(metrics))
+}
+
+// SendMetricsAsync flushes the metrics to Datadog, preparing payload synchronously but doing the send asynchronously.
+func (d *client) SendMetricsAsync(ctx context.Context, metrics *types.MetricMap, c backendTypes.SendCallback) {
+	if metrics.NumStats == 0 {
+		c(nil)
+		return
+	}
+	ts := d.prepareSeries(metrics)
+	go func() {
+		c(d.postMetrics(ts))
+	}()
+}
+
+// SendEvent sends an event to Datadog.
+func (d *client) SendEvent(ctx context.Context, e *types.Event) error {
+	return d.post("/api/v1/events", "events", event{
+		Title:          e.Title,
+		Text:           e.Text,
+		DateHappened:   e.DateHappened,
+		Hostname:       e.Hostname,
+		AggregationKey: e.AggregationKey,
+		SourceTypeName: e.SourceTypeName,
+		Tags:           e.Tags,
+		Priority:       e.Priority.StringWithEmptyDefault(),
+		AlertType:      e.AlertType.StringWithEmptyDefault(),
+	})
+}
+
+func (d *client) prepareSeries(metrics *types.MetricMap) *timeSeries {
 	ts := timeSeries{Timestamp: time.Now().Unix(), Hostname: d.hostname}
 
 	metrics.Counters.Each(func(key, tagsKey string, counter types.Counter) {
@@ -134,23 +165,11 @@ func (d *client) SendMetrics(ctx context.Context, metrics *types.MetricMap) erro
 	metrics.Sets.Each(func(key, tagsKey string, set types.Set) {
 		ts.addMetric(key, tagsKey, gauge, float64(len(set.Values)), set.Flush)
 	})
-
-	return d.post("/api/v1/series", "metrics", ts)
+	return &ts
 }
 
-// SendEvent sends an event to Datadog.
-func (d *client) SendEvent(ctx context.Context, e *types.Event) error {
-	return d.post("/api/v1/events", "events", event{
-		Title:          e.Title,
-		Text:           e.Text,
-		DateHappened:   e.DateHappened,
-		Hostname:       e.Hostname,
-		AggregationKey: e.AggregationKey,
-		SourceTypeName: e.SourceTypeName,
-		Tags:           e.Tags,
-		Priority:       e.Priority.StringWithEmptyDefault(),
-		AlertType:      e.AlertType.StringWithEmptyDefault(),
-	})
+func (d *client) postMetrics(ts *timeSeries) error {
+	return d.post("/api/v1/series", "metrics", ts)
 }
 
 // SampleConfig returns the sample config for the datadog backend.

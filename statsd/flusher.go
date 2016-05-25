@@ -78,8 +78,13 @@ func (f *flusher) GetStats() FlusherStats {
 }
 
 func (f *flusher) flushData(ctx context.Context) {
-	results := f.dispatcher.Flush(ctx)
 	var totalStats uint32
+	wg := f.dispatcher.Process(ctx, func(aggr Aggregator) {
+		aggr.Flush(time.Now)
+
+		aggr.Reset(time.Now())
+	})
+	wg.Wait() // Wait for all workers to execute function
 	for {
 		select {
 		case <-ctx.Done():
@@ -127,7 +132,7 @@ func (f *flusher) internalStats(totalStats uint32) *types.MetricMap {
 	f.addCounter(c, "packets_received", now, int64(receiverStats.PacketsReceived-f.sentPacketsReceived))
 	f.addCounter(c, "numStats", now, int64(totalStats))
 
-	log.Debugf("numStats: %d", totalStats)
+	log.Infof("numStats: %d", totalStats)
 
 	f.sentBadLines = receiverStats.BadLines
 	f.sentMetricsReceived = receiverStats.MetricsReceived

@@ -36,6 +36,19 @@ func (g Gauges) HasChildren(k string) bool {
 	return len(g[k]) != 0
 }
 
+// Each iterates over each gauge while f return true.
+// Returns true if all items, if any, were visited.
+func (g Gauges) EachWhile(f func(string, string, Gauge) bool) bool {
+	for key, value := range g {
+		for tags, gauge := range value {
+			if !f(key, tags, gauge) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // Each iterates over each gauge.
 func (g Gauges) Each(f func(string, string, Gauge)) {
 	for key, value := range g {
@@ -43,16 +56,4 @@ func (g Gauges) Each(f func(string, string, Gauge)) {
 			f(key, tags, gauge)
 		}
 	}
-}
-
-// Clone performs a deep copy of a map of gauges into a new map.
-func (g Gauges) Clone() Gauges {
-	destination := Gauges{}
-	g.Each(func(key, tags string, gauge Gauge) {
-		if _, ok := destination[key]; !ok {
-			destination[key] = make(map[string]Gauge)
-		}
-		destination[key][tags] = gauge
-	})
-	return destination
 }

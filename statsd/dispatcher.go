@@ -11,12 +11,15 @@ import (
 	"golang.org/x/net/context"
 )
 
+// DispatcherProcessFunc is a function that gets executed by Dispatcher for each Aggregator, passing it into the function.
+type DispatcherProcessFunc func(Aggregator)
+
 // Dispatcher is responsible for managing Aggregators' lifecycle and dispatching metrics among them.
 type Dispatcher interface {
 	Run(context.Context) error
 	DispatchMetric(context.Context, *types.Metric) error
 	Flush(context.Context) <-chan *types.MetricMap
-	Process(context.Context, ProcessFunc) *sync.WaitGroup
+	Process(context.Context, DispatcherProcessFunc) *sync.WaitGroup
 }
 
 // AggregatorFactory creates Aggregator objects.
@@ -40,7 +43,7 @@ type flushCommand struct {
 }
 
 type processCommand struct {
-	f  ProcessFunc
+	f  DispatcherProcessFunc
 	wg sync.WaitGroup
 }
 
@@ -136,9 +139,9 @@ loop:
 }
 
 // Process concurrently executes provided function in goroutines that own Aggregators.
-// ProcessFunc function may be executed zero or up to numWorkers times. It is executed
+// DispatcherProcessFunc function may be executed zero or up to numWorkers times. It is executed
 // less than numWorkers times if the context signals "done".
-func (d *dispatcher) Process(ctx context.Context, f ProcessFunc) *sync.WaitGroup {
+func (d *dispatcher) Process(ctx context.Context, f DispatcherProcessFunc) *sync.WaitGroup {
 	cmd := &processCommand{
 		f: f,
 	}
@@ -189,5 +192,5 @@ func (w *worker) executeFlush(cmd *flushCommand) {
 
 func (w *worker) executeProcess(cmd *processCommand) {
 	defer cmd.wg.Done() // Done with the process command
-	w.aggr.Process(cmd.f)
+	cmd.f(w.aggr)
 }

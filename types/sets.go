@@ -36,6 +36,19 @@ func (s Sets) HasChildren(k string) bool {
 	return len(s[k]) != 0
 }
 
+// Each iterates over each set while f return true.
+// Returns true if all items, if any, were visited.
+func (s Sets) EachWhile(f func(string, string, Set) bool) bool {
+	for key, value := range s {
+		for tags, set := range value {
+			if !f(key, tags, set) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // Each iterates over each set.
 func (s Sets) Each(f func(string, string, Set)) {
 	for key, value := range s {
@@ -43,16 +56,4 @@ func (s Sets) Each(f func(string, string, Set)) {
 			f(key, tags, set)
 		}
 	}
-}
-
-// Clone performs a deep copy of a map of sets into a new map.
-func (s Sets) Clone() Sets {
-	destination := Sets{}
-	s.Each(func(key, tags string, set Set) {
-		if _, ok := destination[key]; !ok {
-			destination[key] = make(map[string]Set)
-		}
-		destination[key][tags] = set
-	})
-	return destination
 }

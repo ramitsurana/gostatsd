@@ -46,6 +46,19 @@ func (t Timers) HasChildren(k string) bool {
 	return len(t[k]) != 0
 }
 
+// Each iterates over each timer while f return true.
+// Returns true if all items, if any, were visited.
+func (t Timers) EachWhile(f func(string, string, Timer) bool) bool {
+	for key, value := range t {
+		for tags, timer := range value {
+			if !f(key, tags, timer) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // Each iterates over each timer.
 func (t Timers) Each(f func(string, string, Timer)) {
 	for key, value := range t {
@@ -53,16 +66,4 @@ func (t Timers) Each(f func(string, string, Timer)) {
 			f(key, tags, timer)
 		}
 	}
-}
-
-// Clone performs a deep copy of a map of timers into a new map.
-func (t Timers) Clone() Timers {
-	destination := Timers{}
-	t.Each(func(key, tags string, timer Timer) {
-		if _, ok := destination[key]; !ok {
-			destination[key] = make(map[string]Timer)
-		}
-		destination[key][tags] = timer
-	})
-	return destination
 }

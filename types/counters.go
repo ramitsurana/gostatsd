@@ -37,6 +37,19 @@ func (c Counters) HasChildren(k string) bool {
 	return len(c[k]) != 0
 }
 
+// Each iterates over each counter while f return true.
+// Returns true if all items, if any, were visited.
+func (c Counters) EachWhile(f func(string, string, Counter) bool) bool {
+	for key, value := range c {
+		for tags, counter := range value {
+			if !f(key, tags, counter) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // Each iterates over each counter.
 func (c Counters) Each(f func(string, string, Counter)) {
 	for key, value := range c {
@@ -44,16 +57,4 @@ func (c Counters) Each(f func(string, string, Counter)) {
 			f(key, tags, counter)
 		}
 	}
-}
-
-// Clone performs a deep copy of a map of counters into a new map.
-func (c Counters) Clone() Counters {
-	destination := Counters{}
-	c.Each(func(key, tags string, counter Counter) {
-		if _, ok := destination[key]; !ok {
-			destination[key] = make(map[string]Counter)
-		}
-		destination[key][tags] = counter
-	})
-	return destination
 }
